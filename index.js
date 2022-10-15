@@ -6,6 +6,7 @@
 
 import { AppState, Platform } from 'react-native';
 import { component } from './component';
+import { NativeModules } from 'react-native';
 
 const Notifications = {
   handler: component,
@@ -642,5 +643,13 @@ Notifications.Importance = Object.freeze({
   NONE: 0,
   UNSPECIFIED: -1000,
 });
+
+Notifications.areNotificationsEnabled = function () {
+  return NativeModules.ReactNativePushNotification.areNotificationsEnabled()
+}
+
+Notifications.askForPermission = function () {
+  return NativeModules.ReactNativePushNotification.askForPermission()
+}
 
 module.exports = Notifications;

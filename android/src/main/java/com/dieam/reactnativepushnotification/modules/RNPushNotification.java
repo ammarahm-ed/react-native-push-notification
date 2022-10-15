@@ -1,18 +1,26 @@
 package com.dieam.reactnativepushnotification.modules;
 
+import android.Manifest;
 import android.app.Activity;
 import android.app.Application;
-import android.app.NotificationManager;
-import android.content.BroadcastReceiver;
-import android.content.Context;
 import android.content.Intent;
-import android.content.IntentFilter;
+import android.content.pm.PackageManager;
+import android.os.Build;
 import android.os.Bundle;
+
+import androidx.activity.result.ActivityResultCallback;
+import androidx.activity.result.ActivityResultCaller;
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.ActivityResultRegistry;
+import androidx.activity.result.contract.ActivityResultContract;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.annotation.RequiresApi;
 import androidx.core.app.NotificationManagerCompat;
 
 import com.dieam.reactnativepushnotification.helpers.ApplicationBadgeHelper;
+import com.facebook.react.ReactActivity;
 import com.facebook.react.bridge.ActivityEventListener;
 import com.facebook.react.bridge.Arguments;
 import com.facebook.react.bridge.Callback;
@@ -25,8 +33,8 @@ import com.facebook.react.bridge.ReadableArray;
 import com.facebook.react.bridge.WritableArray;
 import com.facebook.react.bridge.ReadableMap;
 import com.facebook.react.bridge.WritableMap;
+import com.facebook.react.modules.core.PermissionListener;
 
-import java.io.IOException;
 import java.security.SecureRandom;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -34,9 +42,6 @@ import java.util.Map;
 
 import android.util.Log;
 
-import com.google.android.gms.tasks.OnCompleteListener;
-import com.google.android.gms.tasks.Task;
-import com.google.firebase.messaging.FirebaseMessaging;
 
 public class RNPushNotification extends ReactContextBaseJavaModule implements ActivityEventListener {
     public static final String LOG_TAG = "RNPushNotification";// all logging should use this tag
@@ -137,30 +142,6 @@ public class RNPushNotification extends ReactContextBaseJavaModule implements Ac
     public void requestPermissions() {
       final RNPushNotificationJsDelivery fMjsDelivery = mJsDelivery;
       
-      FirebaseMessaging.getInstance().getToken()
-              .addOnCompleteListener(new OnCompleteListener<String>() {
-                  @Override
-                  public void onComplete(@NonNull Task<String> task) {
-                      if (!task.isSuccessful()) {
-                          Log.e(LOG_TAG, "exception", task.getException());
-                          return;
-                      }
-
-                      WritableMap params = Arguments.createMap();
-                      params.putString("deviceToken", task.getResult());
-                      fMjsDelivery.sendEvent("remoteNotificationsRegistered", params);
-                  }
-              });
-    }
-
-    @ReactMethod
-    public void subscribeToTopic(String topic) {
-        FirebaseMessaging.getInstance().subscribeToTopic(topic);
-    }
-    
-    @ReactMethod
-    public void unsubscribeFromTopic(String topic) {
-        FirebaseMessaging.getInstance().unsubscribeFromTopic(topic);
     }
 
     @ReactMethod
@@ -280,7 +261,6 @@ public class RNPushNotification extends ReactContextBaseJavaModule implements Ac
      * Unregister for all remote notifications received
      */
     public void abandonPermissions() {
-      FirebaseMessaging.getInstance().deleteToken();
       Log.i(LOG_TAG, "InstanceID deleted");
     }
 
@@ -338,5 +318,35 @@ public class RNPushNotification extends ReactContextBaseJavaModule implements Ac
      */
     public void deleteChannel(String channel_id) {
       mRNPushNotificationHelper.deleteChannel(channel_id);
+    }
+
+    @ReactMethod
+    /**
+     * Delete channel with a given id
+     */
+    public void areNotificationsEnabled(Promise promise) {
+        promise.resolve(NotificationManagerCompat.from(getReactApplicationContext()).areNotificationsEnabled());
+    }
+
+
+    @RequiresApi(33)
+    @ReactMethod
+    public void askForPermission(Promise promise) {
+        ReactActivity activity = (ReactActivity) getCurrentActivity();
+        if (activity == null) {
+            promise.resolve(null);
+        }
+        activity.requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS}, 0671, (PermissionListener) (i, strings, ints) -> {
+            if (i == 0671) {
+                if (ints.length != 0 && ints[0] == PackageManager.PERMISSION_GRANTED) {
+                    promise.resolve(true);
+                    return true;
+                } else {
+                    promise.resolve(false);
+                    return false;
+                }
+            }
+            return false;
+        });
     }
 }
